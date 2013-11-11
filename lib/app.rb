@@ -3,9 +3,10 @@ require 'sinatra'
 require 'sinatra/reloader' if development?
 require 'haml'
 require 'csv'
+require 'pstore'
 
 before do 
-  #redirect "https://#{request.host}" unless request.secure? 
+  @db = PStore.new("db")
 end
 
 helpers do
@@ -21,6 +22,19 @@ end
 
 post '/' do
   @table = create_table params[:csv]
+  @title = params[:title]
+  @db.transaction do |db|
+    db[@title] = @table
+  end
+  haml :index
+end
+
+get "/:title" do
+  @title = params[:title]
+  @db.transaction do |db|
+    @table = db[@title] 
+  end
+  redirect "/" if !@table
   haml :index
 end
 
@@ -53,9 +67,12 @@ __END__
     .span
       %form{method: "POST", action: "/"}
         %div
+          %input{name: "title",placeholder: "Title"}
+        %div
           %textarea{name: "csv",placeholder: "Paste CSV"}
         %button{:type=>"submit"} Tablize
-      %h3 Table
+      %a{href: "http://#{request.host}:#{request.port}/#{@title.to_s}"}
+        %h3= "Table: #{@title.to_s}"
       %table.table.table-striped
         %tbody
           %tr
