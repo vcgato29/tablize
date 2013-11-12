@@ -8,6 +8,9 @@ require 'uri'
 
 before do 
   @db = PStore.new("db")
+  @db.transaction do 
+    @db[:titles] ||= {}
+  end
 end
 
 helpers do
@@ -18,9 +21,8 @@ end
 
 get '/' do
   @table = [["col"],["value"]]
-  @db.transaction do |db|
-    db[:titles] ||= {}
-    @titles = db[:titles] 
+  @db.transaction do 
+    @titles = @db[:titles] 
   end
   haml :index
 end
@@ -28,18 +30,26 @@ end
 post '/' do
   @table = create_table params[:csv]
   @title = params[:title]
-  @db.transaction do |db|
-    db[:titles] ||= {}
-    db[:titles].merge!({@title => Time.now})
-    db[@title] = @table
+  @db.transaction do
+    @db[:titles].merge!({@title => Time.now})
+    @db[@title] = @table
   end
   redirect "/titles/#{URI.encode @title}"
 end
 
+post '/titles/:title/delete' do
+  @title = params[:title]
+  @db.transaction do 
+    @db[:titles].delete @title
+    @db.delete @title
+  end
+  redirect "/"
+end
+
 get "/titles/:title" do
   @title = params[:title]
-  @db.transaction do |db|
-    @table = db[@title] 
+  @db.transaction do
+    @table = @db[@title] 
   end
   redirect "/" if !@table
   haml :index
@@ -100,9 +110,14 @@ __END__
             %tr
               %th title
               %th created_at
+              %th
             - @titles.sort_by{|k,v|v}.reverse.each do |title|
               %tr
                 %td
                   %a{href: "/titles/#{URI.encode title[0].to_s}"}
                     = title[0].to_s
                 %td= title[1].to_s
+                %td
+                  %form{action: "/titles/#{URI.encode title[0].to_s}/delete", method: "POST"}
+                    %button{type: "submit"}
+                      delete    
