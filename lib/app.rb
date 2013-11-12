@@ -19,7 +19,7 @@ end
 get '/' do
   @table = [["col"],["value"]]
   @db.transaction do |db|
-    db[:titles] ||= []
+    db[:titles] ||= {}
     @titles = db[:titles] 
   end
   haml :index
